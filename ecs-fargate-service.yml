@@ -99,7 +99,8 @@ Outputs:
     Value: !Ref ECSService
 
 
-# Leave AWS enviroment variable within .env.
+# Leave AWS enviroment variables within .env.
+# All my allications stay at AWS, I would like to get it work in AWS stack.
 # aws cloudformation deploy \
 #   --template-file ecs-fargate-service.yml \
 #   --stack-name MyECSServiceStack \
