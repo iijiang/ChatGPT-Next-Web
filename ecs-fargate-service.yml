@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  SubnetID1:
+    Description: The first Subnet ID for the ECS Service
+    Type: String
+  SubnetID2:
+    Description: The second Subnet ID for the ECS Service
+    Type: String
+  DockerImage:
+    Description: Docker image URL
+    Type: String
+  VPCID:
+    Description: VPCID
+    Type: String
+ 
+Resources:
+  # ECS Cluster
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+
+  # ECS Task Definition
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties: 
+      Family: "my-family"
+      Cpu: "256"
+      Memory: "512"
+      NetworkMode: "awsvpc"
+      ExecutionRoleArn: !Ref ECSTaskExecutionRole
+      RequiresCompatibilities: 
+        - FARGATE
+      ContainerDefinitions: 
+        - Name: "my-container"
+          Image: !Ref DockerImage
+          PortMappings: 
+            - ContainerPort: 80
+
+  # ECS Service
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties: 
+      Cluster: !Ref ECSCluster
+      DesiredCount: 1
+      LaunchType: "FARGATE"
+      TaskDefinition: !Ref ECSTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets: 
+            - !Ref SubnetID1
+            - !Ref SubnetID2
+          SecurityGroups:
+            - !Ref SecurityGroup
+
+  # Security Group
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: "Enable HTTP"
+      VpcId: !Ref VPCID
+      SecurityGroupIngress: 
+        - IpProtocol: tcp
+          FromPort: "80"
+          ToPort: "80"
+          CidrIp: 0.0.0.0/0
+
+  # ECS Role
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: ECSTaskExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecs:Describe*"
+                  - "ecs:List*"
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:BatchCheckLayerAvailability"
+                Resource: "*"
+
+Outputs:
+  ClusterName:
+    Description: The Cluster Name
+    Value: !Ref ECSCluster
+  ServiceName:
+    Description: The Service Name
+    Value: !Ref ECSService
+
+
+# Leave AWS enviroment variable within .env.
+# aws cloudformation deploy \
+#   --template-file ecs-fargate-service.yml \
+#   --stack-name MyECSServiceStack \
+#   --parameter-overrides SubnetID1=$SUBNET_ID1 SubnetID2=$SUBNET_ID2 DockerImage=$DOCKER_IMAGE VPCID=$VPC_ID \
+#   --capabilities CAPABILITY_IAM
+
+# aws cloudformation delete-stack --stack-name MyECSServiceStack
